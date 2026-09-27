@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { fieldLabel } from '../domain';
 import type { FinanceScenario, ScenarioField, ValidationErrors } from '../types';
 
-const fields: Array<{ key: ScenarioField; suffix: string; step: string }> = [
+export const SCENARIO_FIELD_META: Array<{ key: ScenarioField; suffix: string; step: string }> = [
   { key: 'principal', suffix: '元', step: '1000' },
   { key: 'recurring', suffix: '元 / 月', step: '100' },
   { key: 'years', suffix: '年', step: '1' },
@@ -30,7 +30,7 @@ export function ScenarioForm({ scenario, errors, onUpdate, onRename, onDuplicate
         <button className="icon-button muted" type="button" onClick={onRemove} title="删除情景" aria-label="删除情景">×</button>
       </div>
       <div className="field-grid">
-        {fields.map(({ key, suffix, step }) => (
+        {SCENARIO_FIELD_META.map(({ key, suffix, step }) => (
           <label className="field" key={key}>
             <span>{fieldLabel(key)}</span>
             <div className={`input-wrap ${errors[key] ? 'has-error' : ''}`}>

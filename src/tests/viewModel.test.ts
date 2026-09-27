@@ -36,4 +36,41 @@ describe('MoneyScenarioViewModel', () => {
     expect(vm.getSnapshot().status).toBe('error');
     expect(vm.getSnapshot().scenarios).toHaveLength(3);
   });
+
+  it('applies a batch update identical to editing each scenario manually', async () => {
+    const batch = new MoneyScenarioViewModel(new MemoryRepository());
+    await batch.init();
+    batch.applyBatchUpdate('inflationRate', 3, ['steady', 'growth']);
+
+    const manual = new MoneyScenarioViewModel(new MemoryRepository());
+    await manual.init();
+    manual.updateField('steady', 'inflationRate', 3);
+    manual.updateField('growth', 'inflationRate', 3);
+
+    expect(batch.getSnapshot().scenarios).toEqual(manual.getSnapshot().scenarios);
+    expect(batch.getSnapshot().projections).toEqual(manual.getSnapshot().projections);
+    expect(batch.getSnapshot().errors).toEqual(manual.getSnapshot().errors);
+    expect(batch.getSnapshot().scenarios.find((scenario) => scenario.id === 'balanced')?.inflationRate).toBe(2);
+  });
+
+  it('refreshes validation and projections synchronously on batch update', async () => {
+    const vm = new MoneyScenarioViewModel(new MemoryRepository());
+    await vm.init();
+    vm.applyBatchUpdate('years', 30, ['steady', 'balanced', 'growth']);
+    expect(vm.getSnapshot().projections.map((projection) => projection.points)).toSatisfy((points: unknown[][]) => points.every((point) => point.length === 31));
+
+    vm.applyBatchUpdate('years', 99, ['steady']);
+    expect(vm.getSnapshot().errors.steady.years).toBeTruthy();
+    expect(vm.getSnapshot().projections.map((projection) => projection.scenarioId)).toEqual(['balanced', 'growth']);
+  });
+
+  it('leaves state untouched when a batch update has no valid targets', async () => {
+    const vm = new MoneyScenarioViewModel(new MemoryRepository());
+    await vm.init();
+    const before = vm.getSnapshot();
+    vm.applyBatchUpdate('annualRate', 5, []);
+    vm.applyBatchUpdate('annualRate', 5, ['missing-id']);
+    expect(vm.getSnapshot().scenarios).toBe(before.scenarios);
+    expect(vm.getSnapshot().projections).toBe(before.projections);
+  });
 });

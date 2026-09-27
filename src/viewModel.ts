@@ -1,4 +1,4 @@
-import { calculateProjection, COLORS, SAMPLE_SCENARIOS, validateScenario } from './domain';
+import { calculateProjection, COLORS, fieldLabel, SAMPLE_SCENARIOS, validateScenario } from './domain';
 import type { ScenarioRepository } from './repository';
 import type { FinanceScenario, PersistedWorkspace, ScenarioField, ScenarioProjection, ValidationErrors } from './types';
 
@@ -51,6 +51,14 @@ export class MoneyScenarioViewModel {
   updateField(id: string, field: ScenarioField, value: number): void {
     const scenarios = this.state.scenarios.map((scenario) => scenario.id === id ? { ...scenario, [field]: value } : scenario);
     this.applyScenarios(scenarios, id, '参数已更新，结果实时刷新');
+  }
+
+  applyBatchUpdate(field: ScenarioField, value: number, ids: string[]): void {
+    const targets = new Set(ids);
+    const scenarios = this.state.scenarios.map((scenario) => targets.has(scenario.id) ? { ...scenario, [field]: value } : scenario);
+    const changed = scenarios.filter((scenario, index) => scenario !== this.state.scenarios[index]).length;
+    if (changed === 0) return;
+    this.applyScenarios(scenarios, this.state.selectedId, `已统一设置${fieldLabel(field)} · 作用于 ${changed} 个情景`);
   }
 
   renameScenario(id: string, name: string): void {
