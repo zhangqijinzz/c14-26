@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { calculateProjection, validateScenario, SAMPLE_SCENARIOS } from '../domain';
+import { calculateProjection, validateScenario, validateField, SAMPLE_SCENARIOS } from '../domain';
+import { FIELD_ORDER } from '../domain';
 
 describe('scenario domain', () => {
   it('calculates monthly contributions and inflation-adjusted value', () => {
@@ -20,5 +21,14 @@ describe('scenario domain', () => {
     const scenario = { ...SAMPLE_SCENARIOS[0], principal: 0, recurring: 0 };
     expect(validateScenario(scenario)).toEqual({});
     expect(calculateProjection(scenario).finalValue).toBe(0);
+  });
+
+  it('validateField matches validateScenario per field, so batch and manual edits share rules', () => {
+    const invalid = { ...SAMPLE_SCENARIOS[0], years: 61, feeRate: -1, inflationRate: 40 };
+    const whole = validateScenario(invalid);
+    FIELD_ORDER.forEach((field) => {
+      expect(validateField(invalid, field)).toBe(whole[field]);
+    });
+    expect(validateField(SAMPLE_SCENARIOS[0], 'years')).toBeUndefined();
   });
 });

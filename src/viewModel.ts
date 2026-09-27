@@ -1,4 +1,4 @@
-import { calculateProjection, COLORS, SAMPLE_SCENARIOS, validateScenario } from './domain';
+import { calculateProjection, COLORS, fieldLabel, SAMPLE_SCENARIOS, validateScenario } from './domain';
 import type { ScenarioRepository } from './repository';
 import type { FinanceScenario, PersistedWorkspace, ScenarioField, ScenarioProjection, ValidationErrors } from './types';
 
@@ -51,6 +51,19 @@ export class MoneyScenarioViewModel {
   updateField(id: string, field: ScenarioField, value: number): void {
     const scenarios = this.state.scenarios.map((scenario) => scenario.id === id ? { ...scenario, [field]: value } : scenario);
     this.applyScenarios(scenarios, id, '参数已更新，结果实时刷新');
+  }
+
+  batchUpdateField(field: ScenarioField, value: number, targetIds: string[]): number {
+    // Only ids that currently exist are effective targets; stale or duplicate ids are ignored.
+    const targets = new Set(targetIds.filter((id) => this.state.scenarios.some((scenario) => scenario.id === id)));
+    if (targets.size === 0) return 0;
+    // One immutable pass produces the whole new list; the resulting state is identical to
+    // applying updateField once per target, so validation/projection refresh stays in sync.
+    const scenarios = this.state.scenarios.map((scenario) =>
+      targets.has(scenario.id) ? { ...scenario, [field]: value } : scenario,
+    );
+    this.applyScenarios(scenarios, this.state.selectedId, `已将 ${fieldLabel(field)} 统一设置并应用到 ${targets.size} 个情景`);
+    return targets.size;
   }
 
   renameScenario(id: string, name: string): void {

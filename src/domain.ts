@@ -8,20 +8,49 @@ import type {
 
 export const COLORS = ['#e4774e', '#286f68', '#5e65c7', '#c49336', '#b45d88'];
 
+export const FIELD_ORDER: ScenarioField[] = ['principal', 'recurring', 'years', 'annualRate', 'inflationRate', 'feeRate'];
+
+export interface FieldConfig {
+  suffix: string;
+  step: string;
+  min?: number;
+  max?: number;
+}
+
+export const FIELD_CONFIG: Record<ScenarioField, FieldConfig> = {
+  principal: { suffix: '元', step: '1000' },
+  recurring: { suffix: '元 / 月', step: '100' },
+  years: { suffix: '年', step: '1', min: 1, max: 60 },
+  annualRate: { suffix: '% / 年', step: '0.1' },
+  inflationRate: { suffix: '% / 年', step: '0.1' },
+  feeRate: { suffix: '% / 年', step: '0.1' },
+};
+
 export const SAMPLE_SCENARIOS: FinanceScenario[] = [
   { id: 'steady', name: '稳健积累', color: COLORS[0], principal: 30000, recurring: 1500, years: 20, annualRate: 4.5, inflationRate: 2, feeRate: 0.4 },
   { id: 'balanced', name: '平衡增长', color: COLORS[1], principal: 30000, recurring: 1500, years: 20, annualRate: 7, inflationRate: 2, feeRate: 0.6 },
   { id: 'growth', name: '长期增长', color: COLORS[2], principal: 30000, recurring: 1500, years: 20, annualRate: 9, inflationRate: 2.5, feeRate: 0.8 },
 ];
 
+const FIELD_RULES: Record<ScenarioField, (scenario: FinanceScenario) => string | undefined> = {
+  principal: (scenario) => (!Number.isFinite(scenario.principal) || scenario.principal < 0 ? '请输入不小于 0 的金额' : undefined),
+  recurring: (scenario) => (!Number.isFinite(scenario.recurring) || scenario.recurring < 0 ? '请输入不小于 0 的金额' : undefined),
+  years: (scenario) => (!Number.isInteger(scenario.years) || scenario.years < 1 || scenario.years > 60 ? '年限需为 1–60 年的整数' : undefined),
+  annualRate: (scenario) => (!Number.isFinite(scenario.annualRate) || scenario.annualRate < -50 || scenario.annualRate > 100 ? '收益率需在 -50% 至 100% 之间' : undefined),
+  inflationRate: (scenario) => (!Number.isFinite(scenario.inflationRate) || scenario.inflationRate < 0 || scenario.inflationRate > 30 ? '通胀率需在 0% 至 30% 之间' : undefined),
+  feeRate: (scenario) => (!Number.isFinite(scenario.feeRate) || scenario.feeRate < 0 || scenario.feeRate > 10 ? '费用率需在 0% 至 10% 之间' : undefined),
+};
+
+export function validateField(scenario: FinanceScenario, field: ScenarioField): string | undefined {
+  return FIELD_RULES[field](scenario);
+}
+
 export function validateScenario(scenario: FinanceScenario): ValidationErrors {
   const errors: ValidationErrors = {};
-  if (!Number.isFinite(scenario.principal) || scenario.principal < 0) errors.principal = '请输入不小于 0 的金额';
-  if (!Number.isFinite(scenario.recurring) || scenario.recurring < 0) errors.recurring = '请输入不小于 0 的金额';
-  if (!Number.isInteger(scenario.years) || scenario.years < 1 || scenario.years > 60) errors.years = '年限需为 1–60 年的整数';
-  if (!Number.isFinite(scenario.annualRate) || scenario.annualRate < -50 || scenario.annualRate > 100) errors.annualRate = '收益率需在 -50% 至 100% 之间';
-  if (!Number.isFinite(scenario.inflationRate) || scenario.inflationRate < 0 || scenario.inflationRate > 30) errors.inflationRate = '通胀率需在 0% 至 30% 之间';
-  if (!Number.isFinite(scenario.feeRate) || scenario.feeRate < 0 || scenario.feeRate > 10) errors.feeRate = '费用率需在 0% 至 10% 之间';
+  FIELD_ORDER.forEach((field) => {
+    const message = FIELD_RULES[field](scenario);
+    if (message) errors[field] = message;
+  });
   return errors;
 }
 

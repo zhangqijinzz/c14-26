@@ -1,16 +1,25 @@
 import './styles.css';
+import { useState } from 'react';
+import { BatchEditDialog } from './components/BatchEditDialog';
 import { ComparisonChart } from './components/ComparisonChart';
 import { ScenarioForm } from './components/ScenarioForm';
 import { ScenarioTable } from './components/ScenarioTable';
 import { formatMoney } from './domain';
+import type { ScenarioField } from './types';
 import { useMoneyScenario } from './useMoneyScenario';
 
 export default function App() {
   const viewModel = useMoneyScenario();
   const state = viewModel.getSnapshot();
+  const [batchOpen, setBatchOpen] = useState(false);
   const totalValue = Math.max(...state.projections.map((projection) => projection.finalValue), 0);
 
   if (state.status === 'loading') return <div className="loading-screen"><div className="brand-mark">M</div><p>正在准备你的情景工作台…</p></div>;
+
+  const applyBatch = (field: ScenarioField, value: number, targetIds: string[]) => {
+    viewModel.batchUpdateField(field, value, targetIds);
+    setBatchOpen(false);
+  };
 
   return (
     <main className="app-shell">
@@ -27,7 +36,7 @@ export default function App() {
           <div className="side-tip"><span>✦</span><p><strong>试试看</strong><br />复制一个情景，只改收益率，感受复利的时间价值。</p></div>
         </aside>
         <section className="content">
-          <div className="section-heading"><div><span className="eyebrow">01 · SCENARIOS</span><h2>编辑资金情景</h2></div><button className="secondary-button" type="button" onClick={() => viewModel.addScenario()}>＋ 新增情景</button></div>
+          <div className="section-heading"><div><span className="eyebrow">01 · SCENARIOS</span><h2>编辑资金情景</h2></div><div className="heading-actions"><button className="secondary-button" type="button" onClick={() => setBatchOpen(true)}>⚙ 批量设置</button><button className="secondary-button" type="button" onClick={() => viewModel.addScenario()}>＋ 新增情景</button></div></div>
           <div className="scenario-list">
             {state.scenarios.map((scenario) => <ScenarioForm key={scenario.id} scenario={scenario} errors={state.errors[scenario.id] ?? {}} onUpdate={(field, value) => viewModel.updateField(scenario.id, field, value)} onRename={(name) => viewModel.renameScenario(scenario.id, name)} onDuplicate={() => viewModel.duplicateScenario(scenario.id)} onRemove={() => viewModel.removeScenario(scenario.id)} />)}
           </div>
@@ -37,6 +46,7 @@ export default function App() {
           <footer><span>ⓘ 结果为基于输入假设的数学模拟，不代表未来实际表现，也不构成任何投资建议。</span><span>本地优先 · 保存后可恢复</span></footer>
         </section>
       </div>
+      {batchOpen && <BatchEditDialog scenarios={state.scenarios} onApply={applyBatch} onClose={() => setBatchOpen(false)} />}
     </main>
   );
 }

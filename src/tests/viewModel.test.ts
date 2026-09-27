@@ -36,4 +36,61 @@ describe('MoneyScenarioViewModel', () => {
     expect(vm.getSnapshot().status).toBe('error');
     expect(vm.getSnapshot().scenarios).toHaveLength(3);
   });
+
+  it('batch update is equivalent to editing each scenario manually', async () => {
+    const manual = new MoneyScenarioViewModel(new MemoryRepository());
+    const batched = new MoneyScenarioViewModel(new MemoryRepository());
+    await Promise.all([manual.init(), batched.init()]);
+
+    manual.updateField('steady', 'inflationRate', 3);
+    manual.updateField('balanced', 'inflationRate', 3);
+    manual.updateField('growth', 'inflationRate', 3);
+    const affected = batched.batchUpdateField('inflationRate', 3, ['steady', 'balanced', 'growth']);
+
+    expect(affected).toBe(3);
+    const manualState = manual.getSnapshot();
+    const batchedState = batched.getSnapshot();
+    expect(batchedState.scenarios).toEqual(manualState.scenarios);
+    expect(batchedState.errors).toEqual(manualState.errors);
+    expect(batchedState.projections).toEqual(manualState.projections);
+    expect(batchedState.scenarios.every((scenario) => scenario.inflationRate === 3)).toBe(true);
+  });
+
+  it('batch update applies only to selected, currently-existing scenarios', async () => {
+    const vm = new MoneyScenarioViewModel(new MemoryRepository());
+    await vm.init();
+    vm.batchUpdateField('years', 30, ['steady', 'missing-scenario', 'steady']);
+    const scenarios = vm.getSnapshot().scenarios;
+    expect(scenarios.find((scenario) => scenario.id === 'steady')?.years).toBe(30);
+    expect(scenarios.find((scenario) => scenario.id === 'balanced')?.years).toBe(20);
+    expect(scenarios.find((scenario) => scenario.id === 'growth')?.years).toBe(20);
+    // Projections refresh for the changed scenario and stay consistent with validation.
+    const steady = vm.getSnapshot().projections.find((projection) => projection.scenarioId === 'steady');
+    expect(steady?.points).toHaveLength(31);
+  });
+
+  it('batch update with no effective targets changes nothing and emits no change', async () => {
+    const vm = new MoneyScenarioViewModel(new MemoryRepository());
+    await vm.init();
+    const before = vm.getSnapshot();
+    const affected = vm.batchUpdateField('years', 30, []);
+    const after = vm.getSnapshot();
+    expect(affected).toBe(0);
+    expect(after.scenarios).toBe(before.scenarios);
+    expect(after.projections).toBe(before.projections);
+    expect(after.message).toBe(before.message);
+  });
+
+  it('batch update surfaces validation errors for every affected scenario', async () => {
+    const vm = new MoneyScenarioViewModel(new MemoryRepository());
+    await vm.init();
+    vm.batchUpdateField('years', 99, ['steady', 'balanced']);
+    const { errors, projections, status } = vm.getSnapshot();
+    expect(errors.steady.years).toBeTruthy();
+    expect(errors.balanced.years).toBeTruthy();
+    expect(errors.growth).toBeUndefined();
+    // Invalid scenarios contribute no projections; the untouched valid one still does.
+    expect(projections.map((projection) => projection.scenarioId)).toEqual(['growth']);
+    expect(status).toBe('editing');
+  });
 });
